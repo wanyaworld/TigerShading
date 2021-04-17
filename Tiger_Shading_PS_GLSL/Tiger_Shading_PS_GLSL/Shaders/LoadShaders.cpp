@@ -8,9 +8,10 @@
 
 GLchar* ReadShader(const char* filename) {
 
-	FILE* infile = fopen(filename, "rb");
+	FILE* infile;
+	int ret = fopen_s(&infile, filename, "rb");
 
-	if (!infile) {
+	if (ret) {
 #ifdef _DEBUG
 		fprintf(stdout, "Unable to open file '%s'\n", filename);
 #endif /* DEBUG */

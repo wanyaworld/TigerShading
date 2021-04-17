@@ -1,4 +1,4 @@
-#define _CRT_SECURE_NO_WARNINGS
+#pragma warning(disable : 4996)
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,8 +34,6 @@ loc_light_Parameters loc_light[NUMBER_OF_LIGHT_SUPPORTED];
 loc_Material_Parameters loc_material;
 GLint loc_ModelViewProjectionMatrix_PS, loc_ModelViewMatrix_PS, loc_ModelViewMatrixInvTrans_PS;
 
-// include glm/*.hpp only if necessary
-//#include <glm/glm.hpp> 
 #include <glm/gtc/matrix_transform.hpp> //translate, rotate, scale, lookAt, perspective, etc.
 #include <glm/gtc/matrix_inverse.hpp> // inverseTranspose, etc.
 glm::mat4 ModelViewProjectionMatrix, ModelViewMatrix;
@@ -56,14 +54,14 @@ glm::vec4 zero = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 #define LOC_VERTEX 0
 #define LOC_NORMAL 1
 
-
 Material_Parameters material_cow;
 Material_Parameters material_cat;
 Material_Parameters material_barel;
 Material_Parameters material_box;
 
 #define N_OBJECTS 8
-#define N_GEOMETRY_OBJECTS 7
+#define N_GEOMETRY_OBJECTS 6
+
 #define GEOM_OBJ_ID_CAR_BODY 0
 #define GEOM_OBJ_ID_CAR_WHEEL 1
 #define GEOM_OBJ_ID_CAR_NUT 2
@@ -90,34 +88,37 @@ GLfloat *geom_obj_vertices[N_GEOMETRY_OBJECTS];
 
 
 // codes for the 'general' triangular-mesh object
-typedef enum _GEOM_OBJ_TYPE { GEOM_OBJ_TYPE_V = 0, GEOM_OBJ_TYPE_VN, GEOM_OBJ_TYPE_VNT } GEOM_OBJ_TYPE;
+enum class _GEOM_OBJ_TYPE {
+	GEOM_OBJ_TYPE_V = 0, GEOM_OBJ_TYPE_VN, GEOM_OBJ_TYPE_VNT
+};
+//typedef enum _GEOM_OBJ_TYPE { GEOM_OBJ_TYPE_V = 0, GEOM_OBJ_TYPE_VN, GEOM_OBJ_TYPE_VNT } GEOM_OBJ_TYPE;
 // GEOM_OBJ_TYPE_V: (x, y, z)
 // GEOM_OBJ_TYPE_VN: (x, y, z, nx, ny, nz)
 // GEOM_OBJ_TYPE_VNT: (x, y, z, nx, ny, nz, s, t)
 int GEOM_OBJ_ELEMENTS_PER_VERTEX[3] = { 3, 6, 8 };
 
-int read_geometry_file(GLfloat **object, char *filename, GEOM_OBJ_TYPE geom_obj_type) {
+int read_geometry_file(GLfloat **object, char *filename, _GEOM_OBJ_TYPE geom_obj_type) {
 	int i, n_triangles;
 	float *flt_ptr;
 	FILE *fp;
 
 	fprintf(stdout, "Reading geometry from the geometry file %s...\n", filename);
-	fp = fopen(filename, "r");
-	if (fp == NULL) {
+	int ret = fopen_s(&fp, filename, "r");
+	if (ret) {
 		fprintf(stderr, "Cannot open the geometry file %s ...", filename);
 		return -1;
 	}
 
-	fscanf(fp, "%d", &n_triangles);
-	*object = (float *)malloc(3 * n_triangles*GEOM_OBJ_ELEMENTS_PER_VERTEX[geom_obj_type] * sizeof(float));
+	fscanf_s(fp, "%d", &n_triangles);
+	*object = (float *)malloc(3 * n_triangles*GEOM_OBJ_ELEMENTS_PER_VERTEX[(int)geom_obj_type] * sizeof(float));
 	if (*object == NULL) {
 		fprintf(stderr, "Cannot allocate memory for the geometry file %s ...", filename);
 		return -1;
 	}
 
 	flt_ptr = *object;
-	for (i = 0; i < 3 * n_triangles * GEOM_OBJ_ELEMENTS_PER_VERTEX[geom_obj_type]; i++)
-		fscanf(fp, "%f", flt_ptr++);
+	for (i = 0; i < 3 * n_triangles * GEOM_OBJ_ELEMENTS_PER_VERTEX[(int)geom_obj_type]; i++)
+		fscanf_s(fp, "%f", flt_ptr++);
 	fclose(fp);
 
 	fprintf(stdout, "Read %d primitives successfully.\n\n", n_triangles);
@@ -134,10 +135,10 @@ void draw_object(int object_ID) {
 	glBindVertexArray(0);
 }
 
-void prepare_geom_obj(int geom_obj_ID, char *filename, GEOM_OBJ_TYPE geom_obj_type) {
+void prepare_geom_obj(int geom_obj_ID, char *filename, _GEOM_OBJ_TYPE geom_obj_type) {
 	int n_bytes_per_vertex;
 
-	n_bytes_per_vertex = GEOM_OBJ_ELEMENTS_PER_VERTEX[geom_obj_type] * sizeof(float);
+	n_bytes_per_vertex = GEOM_OBJ_ELEMENTS_PER_VERTEX[(int)geom_obj_type] * sizeof(float);
 	geom_obj_n_triangles[geom_obj_ID] = read_geometry_file(&geom_obj_vertices[geom_obj_ID], filename, geom_obj_type);
 
 	// Initialize vertex array object.
@@ -149,11 +150,11 @@ void prepare_geom_obj(int geom_obj_ID, char *filename, GEOM_OBJ_TYPE geom_obj_ty
 		geom_obj_vertices[geom_obj_ID], GL_STATIC_DRAW);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, n_bytes_per_vertex, BUFFER_OFFSET(0));
 	glEnableVertexAttribArray(0);
-	if (geom_obj_type >= GEOM_OBJ_TYPE_VN) {
+	if (geom_obj_type >= _GEOM_OBJ_TYPE::GEOM_OBJ_TYPE_VN) {
 		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, n_bytes_per_vertex, BUFFER_OFFSET(3 * sizeof(float)));
 		glEnableVertexAttribArray(1);
 	}
-	if (geom_obj_type >= GEOM_OBJ_TYPE_VNT) {
+	if (geom_obj_type >= _GEOM_OBJ_TYPE::GEOM_OBJ_TYPE_VNT) {
 		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, n_bytes_per_vertex, BUFFER_OFFSET(6 * sizeof(float)));
 		glEnableVertexAttribArray(2);
 	}
@@ -169,8 +170,8 @@ int read_triangular_mesh(GLfloat **object, int bytes_per_primitive, char *filena
 	FILE *fp;
 
 	fprintf(stdout, "Reading geometry from the geometry file %s...\n", filename);
-	fp = fopen(filename, "rb");
-	if (fp == NULL) {
+	int ret = fopen_s(&fp, filename, "rb");
+	if (ret) {
 		fprintf(stderr, "Cannot open the object file %s ...", filename);
 		return -1;
 	}
@@ -235,22 +236,22 @@ void read_car_path(char *path_filename) {
 	int i;
 	float *tmp_ptr;
 
-	if ((fp = fopen(path_filename, "r")) == NULL) {
+	if (fopen_s(&fp, path_filename, "r")) {
 		fprintf(stderr, "Error: cannot open the car path file %s...\n", path_filename);
 		exit(-1);
 	}
-	fscanf(fp, "%d", &n_car_path_vertices);
+	fscanf_s(fp, "%d", &n_car_path_vertices);
 	tmp_ptr = car_path_vertices = (GLfloat *)malloc(n_car_path_vertices*sizeof(GLfloat) * 3);
 	for (i = 0; i < n_car_path_vertices; i++) {
-		fscanf(fp, "%fp", tmp_ptr);
+		fscanf_s(fp, "%fp", tmp_ptr);
 		*tmp_ptr *= 20.0f; tmp_ptr++;
-		fscanf(fp, "%fp", tmp_ptr);
+		fscanf_s(fp, "%fp", tmp_ptr);
 		*tmp_ptr *= 20.0f; tmp_ptr++;
-		fscanf(fp, "%fp", tmp_ptr);
+		fscanf_s(fp, "%fp", tmp_ptr);
 		*tmp_ptr *= 20.0f; tmp_ptr++;
-		//	fscanf(fp, "%f", tmp_ptr++);
-		//	fscanf(fp, "%f", tmp_ptr++);
-		//	fscanf(fp, "%f", tmp_ptr++);
+		//	fscanf_s(fp, "%f", tmp_ptr++);
+		//	fscanf_s(fp, "%f", tmp_ptr++);
+		//	fscanf_s(fp, "%f", tmp_ptr++);
 	}
 	fclose(fp);
 	fprintf(stdout, "* The number of points in the car path is %d.\n", n_car_path_vertices);
@@ -345,7 +346,6 @@ GLfloat rectangle_vertices[12][3] = {  // vertices enumerated counterclockwise
 
 Material_Parameters material_floor;
 
-
 void prepare_floor(void) { // Draw coordinate axes.
 						   // Initialize vertex buffer object.
 	glGenBuffers(1, &rectangle_VBO);
@@ -415,21 +415,6 @@ GLfloat *tiger_vertices[N_TIGER_FRAMES];
 
 Material_Parameters material_tiger;
 
-//  cow object
-#define N_COW_FRAMES 1
-GLuint cow_VBO, cow_VAO;
-int cow_n_triangles[N_COW_FRAMES];
-int cow_vertex_offset[N_COW_FRAMES];
-GLfloat *cow_vertices[N_COW_FRAMES];
-
-
-//  cat object
-#define N_CAT_FRAMES 1
-GLuint cat_VBO, cat_VAO;
-int cat_n_triangles[N_CAT_FRAMES];
-int cat_vertex_offset[N_CAT_FRAMES];
-GLfloat *cat_vertices[N_CAT_FRAMES];
-
 //  barel object
 #define N_BAREL_FRAMES 1
 GLuint barel_VBO, barel_VAO;
@@ -444,17 +429,13 @@ int box_n_triangles[N_BOX_FRAMES];
 int box_vertex_offset[N_BOX_FRAMES];
 GLfloat *box_vertices[N_BOX_FRAMES];
 
-
-
-
-
 int read_geometry(GLfloat **object, int bytes_per_primitive, char *filename) {
 	int n_triangles;
 	FILE *fp;
 
 	// fprintf(stdout, "Reading geometry from the geometry file %s...\n", filename);
-	fp = fopen(filename, "rb");
-	if (fp == NULL) {
+	int ret = fopen_s(&fp, filename, "rb");
+	if (ret) {
 		fprintf(stderr, "Cannot open the object file %s ...", filename);
 		return -1;
 	}
@@ -610,146 +591,6 @@ void prepare_barel(void) { // vertices enumerated clockwise
 	material_barel.emissive_color[3] = 1.0f;
 }
 
-void prepare_cat(void) { // vertices enumerated clockwise
-	int i, n_bytes_per_vertex, n_bytes_per_triangle, cat_n_total_triangles = 0;
-	char filename[512];
-
-	n_bytes_per_vertex = 8 * sizeof(float); // 3 for vertex, 3 for normal, and 2 for texcoord
-	n_bytes_per_triangle = 3 * n_bytes_per_vertex;
-
-	for (i = 0; i < N_CAT_FRAMES; i++) {
-		sprintf(filename, "Data/Cat_triangles_vnt.geom");
-		cat_n_triangles[i] = read_geometry(&cat_vertices[i], n_bytes_per_triangle, filename);
-		// assume all geometry files are effective
-		cat_n_total_triangles += cat_n_triangles[i];
-
-		if (i == 0)
-			cat_vertex_offset[i] = 0;
-		else
-			cat_vertex_offset[i] = cat_vertex_offset[i - 1] + 3 * cat_n_triangles[i - 1];
-	}
-
-	// initialize vertex buffer object
-	glGenBuffers(1, &cat_VBO);
-
-	glBindBuffer(GL_ARRAY_BUFFER, cat_VBO);
-	glBufferData(GL_ARRAY_BUFFER, cat_n_total_triangles*n_bytes_per_triangle, NULL, GL_STATIC_DRAW);
-
-	for (i = 0; i < N_CAT_FRAMES; i++)
-		glBufferSubData(GL_ARRAY_BUFFER, cat_vertex_offset[i] * n_bytes_per_vertex,
-			cat_n_triangles[i] * n_bytes_per_triangle, cat_vertices[i]);
-
-	// as the geometry data exists now in graphics memory, ...
-	for (i = 0; i < N_CAT_FRAMES; i++)
-		free(cat_vertices[i]);
-
-	// initialize vertex array object
-	glGenVertexArrays(1, &cat_VAO);
-	glBindVertexArray(cat_VAO);
-
-	glBindBuffer(GL_ARRAY_BUFFER, cat_VBO);
-	glVertexAttribPointer(LOC_VERTEX, 3, GL_FLOAT, GL_FALSE, n_bytes_per_vertex, BUFFER_OFFSET(0));
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(LOC_NORMAL, 3, GL_FLOAT, GL_FALSE, n_bytes_per_vertex, BUFFER_OFFSET(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-
-	material_cat.ambient_color[0] = 0.24725f;
-	material_cat.ambient_color[1] = 0.1995f;
-	material_cat.ambient_color[2] = 0.745f;
-	material_cat.ambient_color[3] = 1.0f;
-
-	material_cat.diffuse_color[0] = 0.75164f;
-	material_cat.diffuse_color[1] = 0.648f;
-	material_cat.diffuse_color[2] = 0.22648f;
-	material_cat.diffuse_color[3] = 1.0f;
-
-	material_cat.specular_color[0] = 0.28281f;
-	material_cat.specular_color[1] = 0.802f;
-	material_cat.specular_color[2] = 0.366065f;
-	material_cat.specular_color[3] = 1.0f;
-
-	material_cat.specular_exponent = 51.2f;
-
-	material_cat.emissive_color[0] = 0.1f;
-	material_cat.emissive_color[1] = 0.1f;
-	material_cat.emissive_color[2] = 0.0f;
-	material_cat.emissive_color[3] = 1.0f;
-}
-
-void prepare_cow(void) { // vertices enumerated clockwise
-	int i, n_bytes_per_vertex, n_bytes_per_triangle, cow_n_total_triangles = 0;
-	char filename[512];
-
-	n_bytes_per_vertex = 8 * sizeof(float); // 3 for vertex, 3 for normal, and 2 for texcoord
-	n_bytes_per_triangle = 3 * n_bytes_per_vertex;
-
-	for (i = 0; i < N_COW_FRAMES; i++) {
-		sprintf(filename, "Data/Cow_triangles_vn.geom");
-		cow_n_triangles[i] = read_geometry(&cow_vertices[i], n_bytes_per_triangle, filename);
-		// assume all geometry files are effective
-		cow_n_total_triangles += cow_n_triangles[i];
-
-		if (i == 0)
-			cow_vertex_offset[i] = 0;
-		else
-			cow_vertex_offset[i] = cow_vertex_offset[i - 1] + 3 * cow_n_triangles[i - 1];
-	}
-
-	// initialize vertex buffer object
-	glGenBuffers(1, &cow_VBO);
-
-	glBindBuffer(GL_ARRAY_BUFFER, cow_VBO);
-	glBufferData(GL_ARRAY_BUFFER, cow_n_total_triangles*n_bytes_per_triangle, NULL, GL_STATIC_DRAW);
-
-	for (i = 0; i < N_COW_FRAMES; i++)
-		glBufferSubData(GL_ARRAY_BUFFER, cow_vertex_offset[i] * n_bytes_per_vertex,
-			cow_n_triangles[i] * n_bytes_per_triangle, cow_vertices[i]);
-
-	// as the geometry data exists now in graphics memory, ...
-	for (i = 0; i < N_COW_FRAMES; i++)
-		free(cow_vertices[i]);
-
-	// initialize vertex array object
-	glGenVertexArrays(1, &cow_VAO);
-	glBindVertexArray(cow_VAO);
-
-	glBindBuffer(GL_ARRAY_BUFFER, cow_VBO);
-	glVertexAttribPointer(LOC_VERTEX, 3, GL_FLOAT, GL_FALSE, n_bytes_per_vertex, BUFFER_OFFSET(0));
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(LOC_NORMAL, 3, GL_FLOAT, GL_FALSE, n_bytes_per_vertex, BUFFER_OFFSET(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-
-	material_cow.ambient_color[0] = 0.24725f;
-	material_cow.ambient_color[1] = 0.1995f;
-	material_cow.ambient_color[2] = 0.0745f;
-	material_cow.ambient_color[3] = 1.0f;
-
-	material_cow.diffuse_color[0] = 0.75164f;
-	material_cow.diffuse_color[1] = 0.60648f;
-	material_cow.diffuse_color[2] = 0.22648f;
-	material_cow.diffuse_color[3] = 1.0f;
-
-	material_cow.specular_color[0] = 0.628281f;
-	material_cow.specular_color[1] = 0.555802f;
-	material_cow.specular_color[2] = 0.366065f;
-	material_cow.specular_color[3] = 1.0f;
-
-	material_cow.specular_exponent = 51.2f;
-
-	material_cow.emissive_color[0] = 0.1f;
-	material_cow.emissive_color[1] = 0.1f;
-	material_cow.emissive_color[2] = 0.0f;
-	material_cow.emissive_color[3] = 1.0f;
-}
-
-
-
 void prepare_tiger(void) { // vertices enumerated clockwise
 	int i, n_bytes_per_vertex, n_bytes_per_triangle, tiger_n_total_triangles = 0;
 	char filename[512];
@@ -836,24 +677,6 @@ void set_material_barel(void) {
 	glUniform4fv(loc_material.emissive_color, 1, material_barel.emissive_color);
 }
 
-void set_material_cat(void) {
-
-	glUniform4fv(loc_material.ambient_color, 1, material_cat.ambient_color);
-	glUniform4fv(loc_material.diffuse_color, 1, material_cat.diffuse_color);
-	glUniform4fv(loc_material.specular_color, 1, material_cat.specular_color);
-	glUniform1f(loc_material.specular_exponent, material_cat.specular_exponent);
-	glUniform4fv(loc_material.emissive_color, 1, material_cat.emissive_color);
-}
-
-void set_material_cow(void) {
-
-	glUniform4fv(loc_material.ambient_color, 1, material_cow.ambient_color);
-	glUniform4fv(loc_material.diffuse_color, 1, material_cow.diffuse_color);
-	glUniform4fv(loc_material.specular_color, 1, material_cow.specular_color);
-	glUniform1f(loc_material.specular_exponent, material_cow.specular_exponent);
-	glUniform4fv(loc_material.emissive_color, 1, material_cow.emissive_color);
-}
-
 void set_material_tiger(void) {
 	// assume ShaderProgram_PS is used
 	glUniform4fv(loc_material.ambient_color, 1, material_tiger.ambient_color);
@@ -878,26 +701,12 @@ void draw_barel(void) {
 	glDrawArrays(GL_TRIANGLES, barel_vertex_offset[cur_frame_barel], 3 * barel_n_triangles[cur_frame_barel]);
 	glBindVertexArray(0);
 }
-void draw_cat(void) {
-	glFrontFace(GL_CW);
-
-	glBindVertexArray(cat_VAO);
-	glDrawArrays(GL_TRIANGLES, cat_vertex_offset[cur_frame_cat], 3 * cat_n_triangles[cur_frame_cat]);
-	glBindVertexArray(0);
-}
 
 void draw_tiger(void) {
 	glFrontFace(GL_CW);
 
 	glBindVertexArray(tiger_VAO);
 	glDrawArrays(GL_TRIANGLES, tiger_vertex_offset[cur_frame_tiger], 3 * tiger_n_triangles[cur_frame_tiger]);
-	glBindVertexArray(0);
-}
-void draw_cow(void) {
-	glFrontFace(GL_CW);
-
-	glBindVertexArray(cow_VAO);
-	glDrawArrays(GL_TRIANGLES, cow_vertex_offset[cur_frame_cow], 3 * cow_n_triangles[cur_frame_cow]);
 	glBindVertexArray(0);
 }
 
@@ -1187,6 +996,9 @@ void display(void) {
 		set_highlight();
 	else
 		set_up_scene_lights();
+
+	/* ------------------------------------------------------------------------------------------------------- */
+
 	glUseProgram(h_ShaderProgram_simple);
 	ModelViewMatrix = ViewMatrix;
 	ModelViewProjectionMatrix = ProjectionMatrix * ModelViewMatrix;
@@ -1215,29 +1027,7 @@ void display(void) {
 	glUniformMatrix3fv(loc_ModelViewMatrixInvTrans_PS, 1, GL_FALSE, &ModelViewMatrixInvTrans[0][0]);
 	draw_floor();
 
-
-
-	glUseProgram(h_ShaderProgram_PS);
-	//set_material_tiger();
-	//set_material_cow();
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-	glUseProgram(h_ShaderProgram_PS);
-
-	ModelViewMatrix = ViewMatrix;
-	ModelViewMatrix = glm::translate(ModelViewMatrix, glm::vec3(0.0f, 120.0f, 0.0f));
-	ModelViewMatrix = glm::rotate(ModelViewMatrix, -rotation_angle_tiger, glm::vec3(0.0f, 1.0f, 0.0f));
-	ModelViewMatrix = glm::translate(ModelViewMatrix, glm::vec3(200.0f, 0.0f, 0.0f));
-	ModelViewMatrix = glm::rotate(ModelViewMatrix, -90 * TO_RADIAN, glm::vec3(0.0f, 1.0f, 0.0f));
-	ModelViewMatrix = glm::scale(ModelViewMatrix, glm::vec3(200.0f, 200.0f, 200.0f));
-	ModelViewProjectionMatrix = ProjectionMatrix * ModelViewMatrix;
-	ModelViewMatrixInvTrans = glm::inverseTranspose(glm::mat3(ModelViewMatrix));
-	glUniformMatrix4fv(loc_ModelViewProjectionMatrix_PS, 1, GL_FALSE, &ModelViewProjectionMatrix[0][0]);
-	glUniformMatrix4fv(loc_ModelViewMatrix_PS, 1, GL_FALSE, &ModelViewMatrix[0][0]);
-	glUniformMatrix3fv(loc_ModelViewMatrixInvTrans_PS, 1, GL_FALSE, &ModelViewMatrixInvTrans[0][0]);
-	draw_cow();
-	//draw_tiger();
-
-
+	/* ------------------------------------------------------------------------------------------------------- */
 
 	set_material_tiger();
 	ModelViewMatrix = ViewMatrix;
@@ -1256,49 +1046,7 @@ void display(void) {
 	glUniformMatrix3fv(loc_ModelViewMatrixInvTrans_PS, 1, GL_FALSE, &ModelViewMatrixInvTrans[0][0]);
 	draw_tiger();
 
-
-
-	set_material_box();
-	ModelViewMatrix = ViewMatrix;
-	ModelViewMatrix = glm::translate(ModelViewMatrix, glm::vec3(0.0f, 50 * cos(rotation_angle_tiger * 5), 0.0f));
-
-
-	ModelViewMatrix = glm::translate(ModelViewMatrix, glm::vec3(car_path_vertices[300],
-		car_path_vertices[301], car_path_vertices[302]));
-
-	ModelViewMatrix = glm::rotate(ModelViewMatrix, -90 * TO_RADIAN, glm::vec3(1.0f, 0.0f, 0.0f));
-	ModelViewMatrix = glm::rotate(ModelViewMatrix, 180 * TO_RADIAN, glm::vec3(0.0f, 0.0f, 1.0f));
-	ModelViewMatrix = glm::scale(ModelViewMatrix, glm::vec3(200.0f, 200.0f, 200.0f));
-	ModelViewProjectionMatrix = ProjectionMatrix * ModelViewMatrix;
-	ModelViewMatrixInvTrans = glm::inverseTranspose(glm::mat3(ModelViewMatrix));
-	glUniformMatrix4fv(loc_ModelViewProjectionMatrix_PS, 1, GL_FALSE, &ModelViewProjectionMatrix[0][0]);
-	glUniformMatrix4fv(loc_ModelViewMatrix_PS, 1, GL_FALSE, &ModelViewMatrix[0][0]);
-	glUniformMatrix3fv(loc_ModelViewMatrixInvTrans_PS, 1, GL_FALSE, &ModelViewMatrixInvTrans[0][0]);
-	draw_cat();
-
-
-
-
-
-	set_material_cat();
-	ModelViewMatrix = ViewMatrix;
-	ModelViewMatrix = glm::translate(ModelViewMatrix, glm::vec3(-200.0f, 0.0f, -200.0f));
-	ModelViewMatrix = glm::rotate(ModelViewMatrix, -rotation_angle_tiger, glm::vec3(0.0f, 1.0f, 0.0f));
-	ModelViewMatrix = glm::rotate(ModelViewMatrix, -90 * TO_RADIAN, glm::vec3(1.0f, 0.0f, 0.0f));
-	ModelViewMatrix = glm::scale(ModelViewMatrix, glm::vec3(200.0f, 200.0f, 200.0f));
-	ModelViewProjectionMatrix = ProjectionMatrix * ModelViewMatrix;
-	ModelViewMatrixInvTrans = glm::inverseTranspose(glm::mat3(ModelViewMatrix));
-	glUniformMatrix4fv(loc_ModelViewProjectionMatrix_PS, 1, GL_FALSE, &ModelViewProjectionMatrix[0][0]);
-	glUniformMatrix4fv(loc_ModelViewMatrix_PS, 1, GL_FALSE, &ModelViewMatrix[0][0]);
-	glUniformMatrix3fv(loc_ModelViewMatrixInvTrans_PS, 1, GL_FALSE, &ModelViewMatrixInvTrans[0][0]);
-	draw_cat();
-
-
-	
-
-
-
-
+	/* ------------------------------------------------------------------------------------------------------- */
 
 	set_material_barel();
 	tiger_axis = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
@@ -1319,15 +1067,11 @@ void display(void) {
 	glUniformMatrix3fv(loc_ModelViewMatrixInvTrans_PS, 1, GL_FALSE, &ModelViewMatrixInvTrans[0][0]);
 	draw_barel();
 
-
-
-
+	/* ------------------------------------------------------------------------------------------------------- */
 
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glUseProgram(h_ShaderProgram_simple);
-	//set_material_tiger();
-	//tmp_idx = (int)(rotation_angle_tiger*330.0) - (int)(rotation_angle_tiger*330.0) % 3;
-	//prv_idx = tmp_idx - 3;
+
 	if (tmp_idx == prv_idx)
 		prv_idx = prv_prv_idx;
 	glm::vec3 a = glm::vec3((float)car_path_vertices[3] - (float)car_path_vertices[0],
@@ -1342,7 +1086,6 @@ void display(void) {
 		b = -b;
 	car_dist = glm::length(glm::vec3(car_path_vertices[tmp_idx] - car_path_vertices[0], car_path_vertices[tmp_idx + 1] - car_path_vertices[1], car_path_vertices[tmp_idx + 2] - car_path_vertices[2]));
 
-
 	if (tmp_idx > 5)
 		angle = acos(glm::dot(glm::normalize(a), glm::normalize(b)));
 
@@ -1356,21 +1099,10 @@ void display(void) {
 	glUniformMatrix4fv(loc_ModelViewProjectionMatrix_simple, 1, GL_FALSE, &ModelViewProjectionMatrix[0][0]);
 	draw_car_dummy();
 
-
-
-	/*glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	glUseProgram(h_ShaderProgram_PS);
-	ModelViewMatrix = glm::scale(ModelMatrix_CAR_PANNEL, glm::vec3(20.0f, 20.0f, 20.0f));
-	ModelViewProjectionMatrix = ProjectionMatrix * ModelViewMatrix;
-	glUniformMatrix4fv(loc_ModelViewProjectionMatrix_simple, 1, GL_FALSE, &ModelViewProjectionMatrix[0][0]);
-	glUniform3f(loc_primitive_color, 0.498f, 1.000f, 0.831f); // color name: Aquamarine
-	draw_floor();*/
+	/* ------------------------------------------------------------------------------------------------------- */
 
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glUseProgram(h_ShaderProgram_PS);
-
-
-
 	glUseProgram(0);
 
 	glutSwapBuffers();
@@ -1732,16 +1464,14 @@ void set_up_scene_lights(void) {
 
 void prepare_scene(void) {
 	prepare_axes();
-	prepare_geom_obj(GEOM_OBJ_ID_CAR_BODY, "Data/car_body_triangles_v.txt", GEOM_OBJ_TYPE_V);
-	prepare_geom_obj(GEOM_OBJ_ID_CAR_WHEEL, "Data/car_wheel_triangles_v.txt", GEOM_OBJ_TYPE_V);
-	prepare_geom_obj(GEOM_OBJ_ID_CAR_NUT, "Data/car_nut_triangles_v.txt", GEOM_OBJ_TYPE_V);
-	prepare_geom_obj(GEOM_OBJ_ID_COW, "Data/cow_triangles_v.txt", GEOM_OBJ_TYPE_V);
-	prepare_geom_obj(GEOM_OBJ_ID_TEAPOT, "Data/teapot_triangles_v.txt", GEOM_OBJ_TYPE_V);
-	prepare_geom_obj(GEOM_OBJ_ID_BOX, "Data/box_triangles_v.txt", GEOM_OBJ_TYPE_V);
+	prepare_geom_obj(GEOM_OBJ_ID_CAR_BODY, "Data/car_body_triangles_v.txt", _GEOM_OBJ_TYPE::GEOM_OBJ_TYPE_V);
+	prepare_geom_obj(GEOM_OBJ_ID_CAR_WHEEL, "Data/car_wheel_triangles_v.txt", _GEOM_OBJ_TYPE::GEOM_OBJ_TYPE_V);
+	prepare_geom_obj(GEOM_OBJ_ID_CAR_NUT, "Data/car_nut_triangles_v.txt", _GEOM_OBJ_TYPE::GEOM_OBJ_TYPE_V);
+	prepare_geom_obj(GEOM_OBJ_ID_COW, "Data/cow_triangles_v.txt", _GEOM_OBJ_TYPE::GEOM_OBJ_TYPE_V);
+	prepare_geom_obj(GEOM_OBJ_ID_TEAPOT, "Data/teapot_triangles_v.txt", _GEOM_OBJ_TYPE::GEOM_OBJ_TYPE_V);
+	prepare_geom_obj(GEOM_OBJ_ID_BOX, "Data/box_triangles_v.txt", _GEOM_OBJ_TYPE::GEOM_OBJ_TYPE_V);
 	prepare_floor();
 	prepare_tiger();
-	prepare_cat();
-	prepare_cow();
 	prepare_car();
 	prepare_barel();
 	prepare_box();
@@ -1788,7 +1518,7 @@ void greetings(char *program_name, char messages[][256], int n_message_lines) {
 #define N_MESSAGE_LINES 1
 void main(int argc, char *argv[]) {
 	// Phong Shading
-	char program_name[64] = "Sogang CSE4170 HW4";
+	char program_name[64] = "OpenGL Rendering Test";
 	char messages[N_MESSAGE_LINES][256] = { "    - Keys used: '0', '1', 'c', 'p', 'ESC'" };
 
 	glutInit(&argc, argv);
