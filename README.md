@@ -1,3 +1,5 @@
+![alt text](https://github.com/wanyaworld/TigerShading/blob/master/title.png?raw=true)
+
 # TigerShading
 Simple openGL rendering &amp; shading example  
 
